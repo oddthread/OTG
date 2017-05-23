@@ -24,7 +24,7 @@ void entity_add_renderer(entity *e, renderer *r);
 void entity_remove_renderer(entity *e, renderer *r);
 
 void entity_set_order(entity *e, u32 order);
-void entity_get_order(entity *e);
+u32 entity_get_order(entity *e);
 void entity_set_visible(entity *e,bool visible);
 void entity_set_size(entity *e, vec2 size);
 vec2 entity_get_size(entity *e);

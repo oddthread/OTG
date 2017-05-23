@@ -145,7 +145,7 @@ void entity_set_order(entity *e, u32 order)
         }
     }
 }
-void entity_get_order(entity *e)
+u32 entity_get_order(entity *e)
 {
     return e->order;
 }
