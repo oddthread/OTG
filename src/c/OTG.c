@@ -221,6 +221,15 @@ f32 entity_get_angle(entity *e)
 {
     return e->angle;
 }
+vec2 entity_get_render_position(entity *e)
+{
+    return e->render_position;
+}
+vec2 entity_get_render_size(entity *e)
+{
+    return e->render_size;
+}
+
 void update_entity_recursive(entity *e)
 {
     u32 i;
@@ -265,11 +274,15 @@ typedef struct text_block_renderer
     ttf_font *f;
     /*@todo handle deleting lines? rerender all option on set_text?*/
     texture **font_textures;/*texture for each line*/
+    texture **line_number_textures;/*texture for each line*/
     char **text;
     bool do_clip;
+    u32 *line_numbers;
     u32 lines;
     window *w;
 } text_block_renderer;
+
+#define MAXIMUM_LINE_NUMBER_LENGTH 20/*@bug only supports length 20 line numbers*/
 void text_block_renderer_render(entity *e, text_block_renderer *tbr)
 {
     /*@todo
@@ -284,39 +297,80 @@ void text_block_renderer_render(entity *e, text_block_renderer *tbr)
     u32 i;
     for(i=0; i<tbr->lines; i++)
     {
-        if(tbr->font_textures[i])
+        if(tbr->line_numbers)
         {
-            rect r;
-            
-            rect clip_region;
-            
-            
-            int size_width;
-            int size_height;
-            size_ttf_font(tbr->f,tbr->text[i],&size_width,&size_height);
-            r.w=size_width;
-            r.h=size_height;
-            
-            r.x=e->render_position.x;
-            r.y=e->render_position.y+size_height*i;
+            if(tbr->line_number_textures[i] && tbr->font_textures[i])
+            {
+                rect r;
+                rect r2;
 
-            clip_region.x=e->render_position.x;
-            clip_region.y=e->render_position.y;
-            clip_region.w=e->render_size.x;
-            clip_region.h=e->render_size.y;
+                rect clip_region;
+                
+                int size_width;
+                int size_height;
+                
+                char buffer[MAXIMUM_LINE_NUMBER_LENGTH];
+                itoa(i,buffer,10);
 
-            draw_texture(tbr->w, tbr->font_textures[i], &r, e->render_angle, NULL, NULL, tbr->do_clip ? &clip_region : 0);
+                size_ttf_font(tbr->f,buffer,&size_width,&size_height);
+                r2.w=size_width;
+                r2.h=size_height;
+                r2.x=e->render_position.x;
+                r2.y=e->render_position.y+size_height*i;
+
+                r.x=e->render_position.x+*tbr->line_numbers;
+                r.y=e->render_position.y+size_height*i;
+
+                size_ttf_font(tbr->f,tbr->text[i],&size_width,&size_height);
+                r.w=size_width;
+                r.h=size_height;
+                
+                clip_region.x=e->render_position.x;
+                clip_region.y=e->render_position.y;
+                clip_region.w=e->render_size.x;
+                clip_region.h=e->render_size.y;
+
+                draw_texture(tbr->w, tbr->line_number_textures[i], &r2, e->render_angle, NULL, NULL, tbr->do_clip ? &clip_region : 0);
+                draw_texture(tbr->w, tbr->font_textures[i], &r, e->render_angle, NULL, NULL, tbr->do_clip ? &clip_region : 0);
+            }
+        }
+        else
+        {
+            if(tbr->font_textures[i])
+            {
+                rect r;
+                rect clip_region;
+                
+                int size_width;
+                int size_height;
+                size_ttf_font(tbr->f,tbr->text[i],&size_width,&size_height);
+                r.w=size_width;
+                r.h=size_height;
+                
+                r.x=e->render_position.x;
+                r.y=e->render_position.y+size_height*i;
+
+                clip_region.x=e->render_position.x;
+                clip_region.y=e->render_position.y;
+                clip_region.w=e->render_size.x;
+                clip_region.h=e->render_size.y;
+
+                
+                draw_texture(tbr->w, tbr->font_textures[i], &r, e->render_angle, NULL, NULL, tbr->do_clip ? &clip_region : 0);
+            }
         }
     }
 }
-text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do_clip)
+text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do_clip, u32 *line_numbers)
 {
     text_block_renderer *tbr=(text_block_renderer*)malloc(sizeof(text_block_renderer));
     tbr->r.render=text_block_renderer_render;
+    tbr->line_numbers=line_numbers;
     tbr->do_clip=do_clip;
     tbr->f=font;
     tbr->w=w;
     tbr->font_textures=NULL;
+    tbr->line_number_textures=NULL;
     tbr->text=NULL;
     tbr->lines=0;
 
@@ -325,6 +379,7 @@ text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do
 void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines, color text_color, u32 *line_to_rerender)
 {
     u32 i;
+
     /*if the array changes length we rerender (recreate) everything, otherwise its on you to tell when to recreate everything*/
     /*@perf instead of rerendering everything if lines != t->lines just rerender latest one? and count on them to rerender everything if they inserted or something?*/
     if(!line_to_rerender || lines != t->lines)
@@ -332,6 +387,10 @@ void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines
         if(!t->font_textures)
         {
             t->font_textures=(texture**)calloc(lines,sizeof(texture*));
+            if(t->line_numbers)
+            {
+                t->line_number_textures=(texture**)calloc(lines,sizeof(texture*));
+            }
         }
         else
         {
@@ -341,6 +400,16 @@ void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines
             }
             free(t->font_textures);
             t->font_textures=(texture**)calloc(lines,sizeof(texture*));
+
+            if(t->line_numbers)
+            {
+                for(i=0; i<t->lines; i++)
+                {
+                    dtor_texture(t->line_number_textures[i]);
+                }
+                free(t->line_number_textures);
+                t->line_number_textures=(texture**)calloc(lines,sizeof(texture*));
+            }
         }
 
         for(i=0; i<lines; i++)
@@ -349,14 +418,34 @@ void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines
             {
                 dtor_texture(t->font_textures[i]);
             }
-            
             t->font_textures[i]=ctor_texture_font(t->w,t->f,text[i],text_color);
+        
+            if(t->line_numbers)
+            {
+                if(t->line_number_textures[i])
+                {
+                    dtor_texture(t->line_number_textures[i]);
+                }
+                char buffer[MAXIMUM_LINE_NUMBER_LENGTH];
+                itoa(i,buffer,10);
+                t->line_number_textures[i]=ctor_texture_font(t->w,t->f,buffer,text_color);
+                texture_set_alpha(t->line_number_textures[i],100);
+            }
         }
     }
     else
     {
         dtor_texture(t->font_textures[*line_to_rerender]);
         t->font_textures[*line_to_rerender]=ctor_texture_font(t->w,t->f,text[*line_to_rerender],text_color);
+
+        if(t->line_numbers)
+        {
+            dtor_texture(t->line_number_textures[*line_to_rerender]);
+            char buffer[MAXIMUM_LINE_NUMBER_LENGTH];
+            itoa(*line_to_rerender,buffer,10);
+            t->line_number_textures[*line_to_rerender]=ctor_texture_font(t->w,t->f,buffer,text_color);
+            texture_set_alpha(t->line_number_textures[*line_to_rerender],100);
+        }
     }
 
     t->text=text;
@@ -373,8 +462,17 @@ void dtor_text_block_renderer(text_block_renderer *t)
         {
             dtor_texture(t->font_textures[i]);
         }
+        
+        free(t->font_textures);
     }
-    free(t->font_textures);
+    if(t->line_number_textures)
+    {
+        for(i=0; i<t->lines; i+=1)
+        {
+            dtor_texture(t->line_number_textures[i]);
+        }
+        free(t->line_number_textures);
+    }
     free(t);
 }
 

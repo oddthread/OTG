@@ -36,6 +36,10 @@ void entity_set_relpos(entity *e, vec2 relpos);
 vec2 entity_get_relpos(entity *e);
 void entity_set_angle(entity *e, f32 angle);
 f32 entity_get_angle(entity *e);
+vec2 entity_get_render_position(entity *e);
+vec2 entity_get_render_size(entity *e);
+
+f32 entity_get_angle(entity *e);
 
 void update_entity_recursive(entity *e);
 void render_entity_recursive(entity *e);  
@@ -44,7 +48,7 @@ void render_entity_recursive(entity *e);
 typedef struct text_block_renderer text_block_renderer;
 
 void text_block_renderer_render(entity *e, text_block_renderer *t);
-text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do_clip);
+text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do_clip, u32 *line_numbers);
 void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines, color text_color, u32 *line_to_rerender/*NULL to rerender all lines*/);
 /*doesnt free the font, you have to manage that separately (keep a reference)*/
 void dtor_text_block_renderer(text_block_renderer *t);
