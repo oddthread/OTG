@@ -27,7 +27,9 @@ typedef struct entity
 
 	entity *parent;
     u32 uid;
-
+    
+    bool solid;
+    
     entity **children;
     u32 children_size;
 
@@ -44,6 +46,7 @@ typedef struct entity
 	
 	vec2 relsize;
 	vec2 relpos;
+	vec2 relposme;
 
 	f32 angle;
     f32 render_angle;
@@ -66,7 +69,9 @@ entity *ctor_entity(entity *parent)
         entity_set_order(e,e->order);
         //push myself to parent array
     }
-
+    
+    e->solid=true;
+    
     e->children=NULL;
     e->children_size=0;
 
@@ -95,6 +100,9 @@ entity *ctor_entity(entity *parent)
 
     e->relpos.x=0;
     e->relpos.y=0;
+    
+    e->relposme.x=0;
+    e->relposme.y=0;
 
     e->angle=0;
     e->render_angle=0;
@@ -213,6 +221,14 @@ vec2 entity_get_relpos(entity *e)
 {
     return e->relpos;
 }
+void entity_set_relposme(entity *e, vec2 relposme)
+{
+    e->relposme=relposme;
+}
+vec2 entity_get_relposme(entity *e)
+{
+    return e->relposme;
+}
 void entity_set_angle(entity *e, f32 angle)
 {
     e->angle=angle;
@@ -229,6 +245,14 @@ vec2 entity_get_render_size(entity *e)
 {
     return e->render_size;
 }
+bool entity_get_solid(entity *e)
+{
+    return e->solid;
+}
+void entity_set_solid(entity *e,bool solid)
+{
+    e->solid=solid;
+}
 
 void update_entity_recursive(entity *e)
 {
@@ -239,7 +263,10 @@ void update_entity_recursive(entity *e)
 
     e->render_size.x = e->size.x + (e->parent ? e->relsize.x * e->parent->render_size.x : 0);
     e->render_size.y = e->size.y + (e->parent ? e->relsize.y * e->parent->render_size.y : 0);
-
+    
+    e->render_position.x+=e->relposme.x*e->render_size.x;
+    e->render_position.y+=e->relposme.y*e->render_size.y;
+    
     e->render_angle = e->angle + (e->parent ? e->parent->render_angle : 0);
 
     for(i=0; i<e->children_size; i+=1)
@@ -263,9 +290,23 @@ void render_entity_recursive(entity *e)
         render_entity_recursive(e->children[i]);
     }
 }
-entity *hit_test_recursive(entity *e)
+entity *hit_test_recursive(vec2 mouse_position, entity *e, entity *highest)
 {
+    u32 i;
 
+    if(!e->solid || !e->visible) return highest;
+    
+    if(insec(mouse_position,value_vec2(1,1),entity_get_render_position(e),entity_get_render_size(e)))
+    {
+    
+        highest=e;
+    }
+    for(i=0; i<e->children_size; i+=1)
+    {
+        highest=hit_test_recursive(mouse_position, e->children[i], highest);
+    }
+    
+    return highest;
 }
 
 typedef struct text_block_renderer

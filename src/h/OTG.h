@@ -34,16 +34,20 @@ void entity_set_relsize(entity *e, vec2 relsize);
 vec2 entity_get_relsize(entity *e);
 void entity_set_relpos(entity *e, vec2 relpos);
 vec2 entity_get_relpos(entity *e);
+void entity_set_relposme(entity *e, vec2 relposme);
+vec2 entity_get_relposme(entity *e);
 void entity_set_angle(entity *e, f32 angle);
 f32 entity_get_angle(entity *e);
 vec2 entity_get_render_position(entity *e);
 vec2 entity_get_render_size(entity *e);
+bool entity_get_solid(entity *e);
+void entity_set_solid(entity *e,bool solid);
 
 f32 entity_get_angle(entity *e);
 
 void update_entity_recursive(entity *e);
 void render_entity_recursive(entity *e);  
-//entity *hit_test_recursive(entity *e);
+entity *hit_test_recursive(vec2 mouse_position, entity *e,entity *highest);
 
 typedef struct text_block_renderer text_block_renderer;
 
