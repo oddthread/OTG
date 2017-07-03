@@ -290,6 +290,21 @@ void render_entity_recursive(entity *e)
         render_entity_recursive(e->children[i]);
     }
 }
+bool entity_is_or_is_recursive_child(entity *e, entity *test)
+{
+    if(test==e)
+    {
+        return true;
+    }
+    for(u32 i=0; i<e->children_size; i++)
+    {
+        if(entity_is_or_is_recursive_child(e->children[i],test))
+        {
+            return true;
+        }
+    }
+    return false;
+}
 entity *hit_test_recursive(vec2 mouse_position, entity *e, entity *highest)
 {
     u32 i;
@@ -317,13 +332,13 @@ typedef struct text_block_renderer
     texture **font_textures;/*texture for each line*/
     texture **line_number_textures;/*texture for each line*/
     char **text;
+    char *alignment;
     bool do_clip;
     u32 *line_numbers;
-    u32 lines;
+    s32 lines;
     window *w;
 } text_block_renderer;
 
-#define MAXIMUM_LINE_NUMBER_LENGTH 20/*@bug only supports length 20 line numbers*/
 void text_block_renderer_render(entity *e, text_block_renderer *tbr)
 {
     /*@todo
@@ -336,73 +351,49 @@ void text_block_renderer_render(entity *e, text_block_renderer *tbr)
     entity region is clip area
     */
     u32 i;
+    u32 text_offset_x=0;
+
+    rect clip_region;                
+
+    rect r;
+    int size_width;
+    int size_height;
+
+    char buffer[MAXIMUM_LINE_NUMBER_LENGTH];
     for(i=0; i<tbr->lines; i++)
     {
-        if(tbr->line_numbers)
+        if(*tbr->line_numbers)
         {
-            if(tbr->line_number_textures[i] && tbr->font_textures[i])
-            {
-                rect r;
-                rect r2;
-
-                rect clip_region;
-                
-                int size_width;
-                int size_height;
-                
-                char buffer[MAXIMUM_LINE_NUMBER_LENGTH];
-                itoa(i,buffer,10);
-
-                size_ttf_font(tbr->f,buffer,&size_width,&size_height);
-                r2.w=size_width;
-                r2.h=size_height;
-                r2.x=e->render_position.x;
-                r2.y=e->render_position.y+size_height*i;
-
-                r.x=e->render_position.x+*tbr->line_numbers;
-                r.y=e->render_position.y+size_height*i;
-
-                size_ttf_font(tbr->f,tbr->text[i],&size_width,&size_height);
-                r.w=size_width;
-                r.h=size_height;
-                
-                clip_region.x=e->render_position.x;
-                clip_region.y=e->render_position.y;
-                clip_region.w=e->render_size.x;
-                clip_region.h=e->render_size.y;
-
-                draw_texture(tbr->w, tbr->line_number_textures[i], &r2, e->render_angle, NULL, NULL, tbr->do_clip ? &clip_region : 0);
-                draw_texture(tbr->w, tbr->font_textures[i], &r, e->render_angle, NULL, NULL, tbr->do_clip ? &clip_region : 0);
-            }
+            text_offset_x=*tbr->line_numbers;
+            
+            itoa(i+1,buffer,10);
+            size_ttf_font(tbr->f,buffer,&size_width,&size_height);
+            r.w=size_width;
+            r.h=size_height;
+            r.x=/*e->render_position.x +*/ (text_offset_x-r.w-offset_margin);
+            r.y=e->render_position.y+size_height*i;
+            
+            if(tbr->line_number_textures && tbr->line_number_textures[i])draw_texture(tbr->w, tbr->line_number_textures[i], &r, e->render_angle, NULL, NULL, NULL);
         }
-        else
+        if(tbr->font_textures[i])
         {
-            if(tbr->font_textures[i])
-            {
-                rect r;
-                rect clip_region;
-                
-                int size_width;
-                int size_height;
-                size_ttf_font(tbr->f,tbr->text[i],&size_width,&size_height);
-                r.w=size_width;
-                r.h=size_height;
-                
-                r.x=e->render_position.x;
-                r.y=e->render_position.y+size_height*i;
+            size_ttf_font(tbr->f,tbr->text[i],&size_width,&size_height);
+            
+            clip_region.x=text_offset_x;
+            clip_region.y=0;
+            clip_region.w=e->render_size.x;
+            clip_region.h=e->render_size.y;
 
-                clip_region.x=e->render_position.x;
-                clip_region.y=e->render_position.y;
-                clip_region.w=e->render_size.x;
-                clip_region.h=e->render_size.y;
-
-                
-                draw_texture(tbr->w, tbr->font_textures[i], &r, e->render_angle, NULL, NULL, tbr->do_clip ? &clip_region : 0);
-            }
+            r.w=size_width;
+            r.h=size_height;   
+            r.x=e->render_position.x;
+            r.y=e->render_position.y+size_height*i;
+            
+            draw_texture(tbr->w, tbr->font_textures[i], &r, e->render_angle, NULL, NULL, tbr->do_clip ? &clip_region : 0);
         }
     }
 }
-text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do_clip, u32 *line_numbers)
+text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do_clip, u32 *line_numbers, char *alignment)
 {
     text_block_renderer *tbr=(text_block_renderer*)malloc(sizeof(text_block_renderer));
     tbr->r.render=text_block_renderer_render;
@@ -414,7 +405,7 @@ text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do
     tbr->line_number_textures=NULL;
     tbr->text=NULL;
     tbr->lines=0;
-
+    tbr->alignment=alignment;
     return tbr;
 }
 void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines, color text_color, u32 *line_to_rerender)
@@ -428,7 +419,7 @@ void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines
         if(!t->font_textures)
         {
             t->font_textures=(texture**)calloc(lines,sizeof(texture*));
-            if(t->line_numbers)
+            if(*t->line_numbers)
             {
                 t->line_number_textures=(texture**)calloc(lines,sizeof(texture*));
             }
@@ -442,13 +433,16 @@ void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines
             free(t->font_textures);
             t->font_textures=(texture**)calloc(lines,sizeof(texture*));
 
-            if(t->line_numbers)
+            if(*t->line_numbers)
             {
-                for(i=0; i<t->lines; i++)
+                if(t->line_number_textures)
                 {
-                    dtor_texture(t->line_number_textures[i]);
+                    for(i=0; i<t->lines; i++)
+                    {
+                        dtor_texture(t->line_number_textures[i]);
+                    }
+                    free(t->line_number_textures);   
                 }
-                free(t->line_number_textures);
                 t->line_number_textures=(texture**)calloc(lines,sizeof(texture*));
             }
         }
@@ -461,14 +455,14 @@ void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines
             }
             t->font_textures[i]=ctor_texture_font(t->w,t->f,text[i],text_color);
         
-            if(t->line_numbers)
+            if(*t->line_numbers)
             {
                 if(t->line_number_textures[i])
                 {
                     dtor_texture(t->line_number_textures[i]);
                 }
                 char buffer[MAXIMUM_LINE_NUMBER_LENGTH];
-                itoa(i,buffer,10);
+                itoa(i+1,buffer,10);
                 t->line_number_textures[i]=ctor_texture_font(t->w,t->f,buffer,text_color);
                 texture_set_alpha(t->line_number_textures[i],100);
             }
@@ -476,14 +470,14 @@ void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines
     }
     else
     {
-        dtor_texture(t->font_textures[*line_to_rerender]);
+        if(t->font_textures[*line_to_rerender])dtor_texture(t->font_textures[*line_to_rerender]);
         t->font_textures[*line_to_rerender]=ctor_texture_font(t->w,t->f,text[*line_to_rerender],text_color);
 
-        if(t->line_numbers)
+        if(*t->line_numbers)
         {
             dtor_texture(t->line_number_textures[*line_to_rerender]);
             char buffer[MAXIMUM_LINE_NUMBER_LENGTH];
-            itoa(*line_to_rerender,buffer,10);
+            itoa((*line_to_rerender)+1,buffer,10);
             t->line_number_textures[*line_to_rerender]=ctor_texture_font(t->w,t->f,buffer,text_color);
             texture_set_alpha(t->line_number_textures[*line_to_rerender],100);
         }
@@ -501,7 +495,7 @@ void dtor_text_block_renderer(text_block_renderer *t)
     {
         for(i=0; i<t->lines; i+=1)
         {
-            dtor_texture(t->font_textures[i]);
+            if(t->font_textures[i])dtor_texture(t->font_textures[i]);
         }
         
         free(t->font_textures);
@@ -510,7 +504,7 @@ void dtor_text_block_renderer(text_block_renderer *t)
     {
         for(i=0; i<t->lines; i+=1)
         {
-            dtor_texture(t->line_number_textures[i]);
+            if(t->line_number_textures[i])dtor_texture(t->line_number_textures[i]);
         }
         free(t->line_number_textures);
     }
@@ -560,6 +554,10 @@ image_renderer *ctor_image_renderer(window *w,texture *t)
     img->image_texture=t;
     img->r.render=image_renderer_render;
     return img;
+}
+void image_renderer_set_texture(image_renderer *img, texture *t)
+{
+    img->image_texture=t;
 }
 void dtor_image_renderer(image_renderer *img)
 {

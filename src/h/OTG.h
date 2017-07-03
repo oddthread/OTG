@@ -4,6 +4,9 @@
 #include "../../../OSAL/src/h/util.h"
 #include "../../../OSAL/src/h/graphics.h"
 
+#define MAXIMUM_LINE_NUMBER_LENGTH 200
+#define offset_margin 10
+
 /*@todo
 add getters/setters for all entity members
 create text_block_renderer (all it has to do is clip)
@@ -48,14 +51,31 @@ f32 entity_get_angle(entity *e);
 void update_entity_recursive(entity *e);
 void render_entity_recursive(entity *e);  
 entity *hit_test_recursive(vec2 mouse_position, entity *e,entity *highest);
+bool entity_is_or_is_recursive_child(entity *e, entity *test);
 
+/*@PERF
+TEXT_BLOCK_RENDERER WILL PROBABLY TAKE 90% OF CPU TIME
+DONT RENDER TEXTURES THAT ARENT NECESSARY
+*/
 typedef struct text_block_renderer text_block_renderer;
 
 void text_block_renderer_render(entity *e, text_block_renderer *t);
-text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do_clip, u32 *line_numbers);
+/*
+alignment can be: "left", "top", "right", "bottom", or "centered"
+*/
+text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do_clip, u32 *line_numbers, char *alignment);
 void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines, color text_color, u32 *line_to_rerender/*NULL to rerender all lines*/);
 /*doesnt free the font, you have to manage that separately (keep a reference)*/
 void dtor_text_block_renderer(text_block_renderer *t);
+
+/*
+typedef struct text_line_renderer text_line_renderer;
+
+void text_line_renderer_render(entity *e, text_line_renderer *t);
+text_line_renderer *ctor_text_line_renderer(window *w, ttf_font *font, char *alignment);
+text_line_renderer *text_line_renderer_set_text(text_line_renderer *t, char *text, color text_color);
+void dtor_text_line_renderer(text_line_renderer *t);
+*/
 
 /*typedef struct text_stretch_renderer text_stretch_renderer;
 
@@ -66,6 +86,7 @@ void dtor_text_stretch_renderer(text_stretch_renderer *t);
 typedef struct image_renderer image_renderer;
 
 void image_renderer_render(entity *e, image_renderer *i);
+void image_renderer_set_texture(image_renderer *img, texture *t);
 image_renderer *ctor_image_renderer(window *w, texture *t);
 void dtor_image_renderer(image_renderer *i);
 
