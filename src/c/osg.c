@@ -97,7 +97,7 @@ void dtor_entity(entity *e)
         {
             if(e->parent->children[i]->uid==e->uid)
             {
-                M_REMOVE(e->parent->children,e->parent->children_size,i,);
+                d_remove(e->parent->children,e->parent->children_size,i,);
                 break;
             }
         }
