@@ -1,8 +1,8 @@
-#ifndef OTES_H
-#define OTES_H
+#ifndef OSG_H
+#define OSG_H
 
-#include "../../../OSAL/src/h/util.h"
-#include "../../../OSAL/src/h/graphics.h"
+#include "opl/src/h/util.h"
+#include "opl/src/h/graphics.h"
 
 #define MAXIMUM_LINE_NUMBER_LENGTH 200
 #define offset_margin 10

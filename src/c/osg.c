@@ -1,8 +1,9 @@
-#include "../../../OSAL/src/h/graphics.h"
-#include "../../../OSAL/src/h/input.h"
-#include "../../../OSAL/src/h/util.h"
-#include "../../../OSAL/src/h/system.h"
-#include "../h/OTG.h"
+#include "opl/src/h/graphics.h"
+#include "opl/src/h/input.h"
+#include "opl/src/h/util.h"
+#include "opl/src/h/system.h"
+
+#include "osg/src/h/osg.h"
 
 #include <stdlib.h>
 #include <stdio.h>
