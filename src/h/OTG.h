@@ -39,14 +39,17 @@ void entity_set_relpos(entity *e, vec2 relpos);
 vec2 entity_get_relpos(entity *e);
 void entity_set_relposme(entity *e, vec2 relposme);
 vec2 entity_get_relposme(entity *e);
-void entity_set_angle(entity *e, f32 angle);
-f32 entity_get_angle(entity *e);
+void entity_set_angle(entity *e, r32 angle);
+r32 entity_get_angle(entity *e);
 vec2 entity_get_render_position(entity *e);
 vec2 entity_get_render_size(entity *e);
 bool entity_get_solid(entity *e);
 void entity_set_solid(entity *e,bool solid);
 
-f32 entity_get_angle(entity *e);
+void entity_set_alpha(entity *e, r32 alpha);
+r32 entity_get_alpha(entity *e);
+
+r32 entity_get_angle(entity *e);
 
 void update_entity_recursive(entity *e);
 void render_entity_recursive(entity *e);  
@@ -59,7 +62,7 @@ DONT RENDER TEXTURES THAT ARENT NECESSARY
 */
 typedef struct text_block_renderer text_block_renderer;
 
-void text_block_renderer_render(entity *e, text_block_renderer *t);
+void text_block_renderer_render(entity *e, renderer *t);
 /*
 alignment can be: "left", "top", "right", "bottom", or "centered"
 */
@@ -85,7 +88,7 @@ void dtor_text_stretch_renderer(text_stretch_renderer *t);
 */
 typedef struct image_renderer image_renderer;
 
-void image_renderer_render(entity *e, image_renderer *i);
+void image_renderer_render(entity *e, renderer *i);
 void image_renderer_set_texture(image_renderer *img, texture *t);
 image_renderer *ctor_image_renderer(window *w, texture *t);
 void dtor_image_renderer(image_renderer *i);

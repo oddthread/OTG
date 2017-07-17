@@ -6,6 +6,8 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+
+#include <string.h>
 /*@todo
 
 @notes
@@ -38,7 +40,10 @@ typedef struct entity
 
     u32 order;
 
-	bool dirty;
+    r32 alpha;
+	r32 render_alpha;
+
+    bool dirty;
     bool visible;
 	
 	vec2 size;
@@ -48,8 +53,8 @@ typedef struct entity
 	vec2 relpos;
 	vec2 relposme;
 
-	f32 angle;
-    f32 render_angle;
+	r32 angle;
+    r32 render_angle;
 } entity;
 /*
 @todo allocate renderers and entity in one block instead of array of pointers?
@@ -57,6 +62,7 @@ typedef struct entity
 entity *ctor_entity(entity *parent)
 {
     entity *e=(entity*)malloc(sizeof(entity));
+    memset(e,0,sizeof(entity));
 
     e->parent=parent;
 
@@ -69,43 +75,13 @@ entity *ctor_entity(entity *parent)
         entity_set_order(e,e->order);
         //push myself to parent array
     }
-    
+    e->alpha=1;
+    e->render_alpha=1;
     e->solid=true;
-    
-    e->children=NULL;
-    e->children_size=0;
-
-    e->renderers=NULL;
-    e->renderers_size=0;
-
     e->visible=true;
     e->dirty=true;
 
-    e->render_size.x=0;
-    e->render_size.y=0;
-
-    e->render_position.x=0;
-    e->render_position.y=0;
-
     e->uid=uid_counter+=1;
-
-    e->size.x=0;
-    e->size.y=0;
-    
-    e->position.x=0;
-    e->position.y=0;
-
-    e->relsize.x=0;
-    e->relsize.y=0;
-
-    e->relpos.x=0;
-    e->relpos.y=0;
-    
-    e->relposme.x=0;
-    e->relposme.y=0;
-
-    e->angle=0;
-    e->render_angle=0;
 
     return e;
 }
@@ -120,12 +96,8 @@ void dtor_entity(entity *e)
         {
             if(e->parent->children[i]->uid==e->uid)
             {
-                for(u32 i2=i; i2<e->parent->children_size-1; i2++)
-                {
-                    e->parent->children[i2]=e->parent->children[i2+1];
-                }
-                e->parent->children_size-=1;
-                e->parent->children=realloc(e->parent->children,e->parent->children_size*sizeof(entity*));
+                M_REMOVE(e->parent->children,e->parent->children_size,i,);
+                break;
             }
         }
     }
@@ -229,11 +201,11 @@ vec2 entity_get_relposme(entity *e)
 {
     return e->relposme;
 }
-void entity_set_angle(entity *e, f32 angle)
+void entity_set_angle(entity *e, r32 angle)
 {
     e->angle=angle;
 }
-f32 entity_get_angle(entity *e)
+r32 entity_get_angle(entity *e)
 {
     return e->angle;
 }
@@ -253,11 +225,19 @@ void entity_set_solid(entity *e,bool solid)
 {
     e->solid=solid;
 }
+void entity_set_alpha(entity *e, r32 alpha)
+{
+    e->alpha=alpha;
+}
+r32 entity_get_alpha(entity *e)
+{
+    return e->alpha;
+}
 
 void update_entity_recursive(entity *e)
 {
     u32 i;
-
+    
     e->render_position.x = e->position.x + (e->parent ? e->parent->render_position.x + e->parent->render_size.x * e->relpos.x : 0);
     e->render_position.y = e->position.y + (e->parent ? e->parent->render_position.y + e->parent->render_size.y * e->relpos.y: 0);
 
@@ -268,7 +248,9 @@ void update_entity_recursive(entity *e)
     e->render_position.y+=e->relposme.y*e->render_size.y;
     
     e->render_angle = e->angle + (e->parent ? e->parent->render_angle : 0);
-
+    
+    e->render_alpha = e->alpha * (e->parent ? e->parent->render_alpha : 1);
+    
     for(i=0; i<e->children_size; i+=1)
     {
         update_entity_recursive(e->children[i]);
@@ -339,8 +321,9 @@ typedef struct text_block_renderer
     window *w;
 } text_block_renderer;
 
-void text_block_renderer_render(entity *e, text_block_renderer *tbr)
+void text_block_renderer_render(entity *e, renderer *tbr_r)
 {
+    text_block_renderer *tbr=(text_block_renderer*)tbr_r;
     /*@todo
     syntax highlighting (pass grammar file path as parameter?) char const *, color union in set text?
     */
@@ -511,7 +494,6 @@ void dtor_text_block_renderer(text_block_renderer *t)
     free(t);
 }
 
-/*
 typedef struct text_stretch_renderer
 {
     renderer r;
@@ -529,7 +511,6 @@ void dtor_text_stretch_renderer(text_stretch_renderer *t)
 {
     
 }
-*/
 
 typedef struct image_renderer
 {
@@ -537,14 +518,16 @@ typedef struct image_renderer
     texture *image_texture;
     window *w;
 } image_renderer;
-void image_renderer_render(entity *e, image_renderer *i)
+void image_renderer_render(entity *e, renderer *i_r)
 {
+    image_renderer *i=(image_renderer*)i_r;
     rect r;
     r.x=e->render_position.x;
     r.y=e->render_position.y;
     r.w=e->render_size.x;
     r.h=e->render_size.y;
 
+    texture_set_alpha(i->image_texture,e->render_alpha*255);
     draw_texture(i->w, i->image_texture, &r, e->render_angle, NULL, NULL, NULL);
 }
 image_renderer *ctor_image_renderer(window *w,texture *t)
