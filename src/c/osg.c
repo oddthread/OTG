@@ -1,14 +1,11 @@
 #include "opl/src/h/graphics.h"
 #include "opl/src/h/input.h"
-#include "opl/src/h/util.h"
 #include "opl/src/h/system.h"
+
+#include "oul/src/h/oul.h"
 
 #include "osg/src/h/osg.h"
 
-#include <stdlib.h>
-#include <stdio.h>
-
-#include <string.h>
 /*@todo
 
 @notes
@@ -42,7 +39,7 @@ typedef struct entity
     u32 order;
 
     r32 alpha;
-	r32 render_alpha;
+    r32 render_alpha;
 
     bool dirty;
     bool visible;
@@ -62,15 +59,15 @@ typedef struct entity
 */
 entity *ctor_entity(entity *parent)
 {
-    entity *e=(entity*)malloc(sizeof(entity));
-    memset(e,0,sizeof(entity));
+    entity *e=(entity*)mem_alloc(sizeof(entity));
+    zero_out(e,sizeof(entity));
 
     e->parent=parent;
 
     if(e->parent)
     {
         e->parent->children_size+=1;
-        e->parent->children=realloc(e->parent->children, sizeof(entity *) * (e->parent->children_size));
+        e->parent->children=mem_realloc(e->parent->children, sizeof(entity *) * (e->parent->children_size));
         e->parent->children[e->parent->children_size-1]=e;
         e->order=e->parent->children_size-1;
         entity_set_order(e,e->order);
@@ -86,7 +83,7 @@ entity *ctor_entity(entity *parent)
 
     return e;
 }
-/*doesnt free renderers, you have to manage that separately (keep reference)*/
+/*doesnt mem_free renderers, you have to manage that separately (keep reference)*/
 void dtor_entity(entity *e)
 {
     u32 i;
@@ -107,32 +104,36 @@ void dtor_entity(entity *e)
         dtor_entity(e->children[i]);
     }
     
-    free(e);
+    mem_free(e);
 }
 void entity_set_order(entity *e, u32 order)
 {    
     e->order=order;
+}
+void entity_sort_children(entity *e)
+{
     entity *temp;
-    for(u32 i=0; i<e->parent->children_size-1; i++)
+    for(u32 i=0; i<e->children_size-1; i++)
     {
-        for(u32 i2=0; i2<e->parent->children_size - i - 1; i2++)
+        for(u32 i2=0; i2<e->children_size - i - 1; i2++)
         {
-            if(e->parent->children[i2]->order > e->parent->children[i2+1]->order)
+            if(e->children[i2]->order > e->children[i2+1]->order)
             {
-                temp=e->parent->children[i2];
-                e->parent->children[i2]=e->parent->children[i2+1];
-                e->parent->children[i2+1]=temp;
+                temp=e->children[i2];
+                e->children[i2]=e->children[i2+1];
+                e->children[i2+1]=temp;
             }
         }
     }
 }
+
 u32 entity_get_order(entity *e)
 {
     return e->order;
 }
 void entity_add_renderer(entity *e, renderer *r)
 {
-    e->renderers=realloc(e->renderers, sizeof(renderer *) * (e->renderers_size+=1));
+    e->renderers=mem_realloc(e->renderers, sizeof(renderer *) * (e->renderers_size+=1));
     e->renderers[e->renderers_size-1]=r;
 }
 void entity_remove_renderer(entity *e, renderer *r)
@@ -379,7 +380,7 @@ void text_block_renderer_render(entity *e, renderer *tbr_r)
 }
 text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do_clip, u32 *line_numbers, char *alignment)
 {
-    text_block_renderer *tbr=(text_block_renderer*)malloc(sizeof(text_block_renderer));
+    text_block_renderer *tbr=(text_block_renderer*)mem_alloc(sizeof(text_block_renderer));
     tbr->r.render=text_block_renderer_render;
     tbr->line_numbers=line_numbers;
     tbr->do_clip=do_clip;
@@ -400,12 +401,17 @@ void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines
     /*@perf instead of rerendering everything if lines != t->lines just rerender latest one? and count on them to rerender everything if they inserted or something?*/
     if(!line_to_rerender || lines != t->lines)
     {
+	/*
+	make sure array is initialized and array elements are zero initialized
+	*/
         if(!t->font_textures)
         {
-            t->font_textures=(texture**)calloc(lines,sizeof(texture*));
+            t->font_textures=(texture**)mem_alloc(lines * sizeof(texture*));
+            zero_out(t->font_textures,lines * sizeof(texture*));
             if(*t->line_numbers)
             {
-                t->line_number_textures=(texture**)calloc(lines,sizeof(texture*));
+                t->line_number_textures=(texture**)mem_alloc(lines * sizeof(texture*));
+	        zero_out(t->line_number_textures,lines * sizeof(texture*));
             }
         }
         else
@@ -414,8 +420,10 @@ void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines
             {
                 dtor_texture(t->font_textures[i]);
             }
-            free(t->font_textures);
-            t->font_textures=(texture**)calloc(lines,sizeof(texture*));
+            mem_free(t->font_textures);
+
+            t->font_textures=(texture**)mem_alloc(lines * sizeof(texture*));
+            zero_out(t->font_textures,lines * sizeof(texture*));
 
             if(*t->line_numbers)
             {
@@ -425,9 +433,10 @@ void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines
                     {
                         dtor_texture(t->line_number_textures[i]);
                     }
-                    free(t->line_number_textures);   
+                    mem_free(t->line_number_textures);   
                 }
-                t->line_number_textures=(texture**)calloc(lines,sizeof(texture*));
+                t->line_number_textures=(texture**)mem_alloc(lines * sizeof(texture*));
+                zero_out(t->line_number_textures,lines * sizeof(texture*));
             }
         }
 
@@ -470,7 +479,7 @@ void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines
     t->text=text;
     t->lines=lines;
 }
-/*doesnt free the font, you have to manage that separately (keep a reference)*/
+/*doesnt mem_free the font, you have to manage that separately (keep a reference)*/
 void dtor_text_block_renderer(text_block_renderer *t)
 {
     u32 i;
@@ -482,7 +491,7 @@ void dtor_text_block_renderer(text_block_renderer *t)
             if(t->font_textures[i])dtor_texture(t->font_textures[i]);
         }
         
-        free(t->font_textures);
+        mem_free(t->font_textures);
     }
     if(t->line_number_textures)
     {
@@ -490,9 +499,9 @@ void dtor_text_block_renderer(text_block_renderer *t)
         {
             if(t->line_number_textures[i])dtor_texture(t->line_number_textures[i]);
         }
-        free(t->line_number_textures);
+        mem_free(t->line_number_textures);
     }
-    free(t);
+    mem_free(t);
 }
 
 typedef struct text_stretch_renderer
@@ -533,7 +542,7 @@ void image_renderer_render(entity *e, renderer *i_r)
 }
 image_renderer *ctor_image_renderer(window *w,texture *t)
 {
-    image_renderer *img=(image_renderer*)malloc(sizeof(image_renderer));
+    image_renderer *img=(image_renderer*)mem_alloc(sizeof(image_renderer));
     img->w=w;
     img->image_texture=t;
     img->r.render=image_renderer_render;
@@ -546,5 +555,5 @@ void image_renderer_set_texture(image_renderer *img, texture *t)
 void dtor_image_renderer(image_renderer *img)
 {
     dtor_texture(img->image_texture);
-    free(img);
+    mem_free(img);
 }

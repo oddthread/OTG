@@ -1,7 +1,7 @@
 #ifndef OSG_H
 #define OSG_H
 
-#include "opl/src/h/util.h"
+#include "oul/src/h/oul.h"
 #include "opl/src/h/graphics.h"
 
 #define MAXIMUM_LINE_NUMBER_LENGTH 200
@@ -25,6 +25,8 @@ void dtor_entity(entity *e);
 
 void entity_add_renderer(entity *e, renderer *r);
 void entity_remove_renderer(entity *e, renderer *r);
+
+void entity_sort_children(entity *e);
 
 void entity_set_order(entity *e, u32 order);
 u32 entity_get_order(entity *e);
