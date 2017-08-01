@@ -1,12 +1,30 @@
-#include "opl/src/h/graphics.h"
+#include "osg/src/h/osg.h"
+
 #include "opl/src/h/input.h"
 #include "opl/src/h/system.h"
 
-#include "oul/src/h/oul.h"
+#if EXPORT_INTERFACE
+    #include "oul/src/h/oul.h"
 
-#include "osg/src/h/osg.h"
+    #include "opl/src/h/graphics.h"
+
+    #define MAXIMUM_LINE_NUMBER_LENGTH 200
+
+    #define offset_margin 10
+
+    typedef struct renderer renderer;/*@interface*/
+
+    typedef struct entity entity;
+    
+    typedef struct text_block_renderer text_block_renderer;
+#endif
 
 /*@todo
+add getters/setters for all entity members
+create text_block_renderer (all it has to do is clip)
+test out the rest of updating (relsize,relpos,angle,etc.)
+use dirty so its not super inefficient, sleep
+change childrens position based on renderangle of parent
 
 @notes
 
