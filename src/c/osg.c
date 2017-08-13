@@ -4,19 +4,15 @@
 #include "opl/src/h/system.h"
 
 #if EXPORT_INTERFACE
-    #include "oul/src/h/oul.h"
-
-    #include "opl/src/h/graphics.h"
-
-    #define MAXIMUM_LINE_NUMBER_LENGTH 200
-
-    #define offset_margin 10
-
-    typedef struct renderer renderer;/*@interface*/
-
-    typedef struct entity entity;
-    
-    typedef struct text_block_renderer text_block_renderer;
+#include "oul/src/h/oul.h"
+#include "opl/src/h/graphics.h"
+#define MAXIMUM_LINE_NUMBER_LENGTH 200
+#define offset_margin 10
+typedef struct renderer renderer;/*@interface*/
+typedef struct entity entity;
+typedef struct text_block_renderer text_block_renderer;
+typedef struct text_stretch_renderer text_stretch_renderer;
+typedef struct image_renderer image_renderer;
 #endif
 
 /*@todo
