@@ -4,18 +4,20 @@
 
 #include "oul/src/h/oul.h"
 #include "opl/src/h/graphics.h"
+
+typedef struct entity entity;
+typedef struct renderer renderer;
+typedef struct text_block_renderer text_block_renderer;
+typedef struct text_stretch_renderer text_stretch_renderer;
 typedef struct image_renderer image_renderer;
+
 void dtor_image_renderer(image_renderer *img);
 void image_renderer_set_texture(image_renderer *img,texture *t);
 image_renderer *ctor_image_renderer(window *w,texture *t);
-typedef struct entity entity;
-typedef struct renderer renderer;
 void image_renderer_render(entity *e,renderer *i_r);
-typedef struct text_stretch_renderer text_stretch_renderer;
 void dtor_text_stretch_renderer(text_stretch_renderer *t);
 text_stretch_renderer *ctor_text_stretch_renderer();
 void text_stretch_renderer_render(entity *e,text_stretch_renderer *t);
-typedef struct text_block_renderer text_block_renderer;
 void dtor_text_block_renderer(text_block_renderer *t);
 void text_block_renderer_set_text(text_block_renderer *t,char **text,u32 lines,color text_color,u32 *line_to_rerender);
 text_block_renderer *ctor_text_block_renderer(window *w,ttf_font *font,bool do_clip,u32 *line_numbers,char *alignment);
@@ -53,6 +55,5 @@ entity *ctor_entity(entity *parent);
 extern u32 uid_counter;
 #define offset_margin 10
 #define MAXIMUM_LINE_NUMBER_LENGTH 200
-#define EXPORT_INTERFACE 0
 
 #endif
