@@ -1,0 +1,4 @@
+#ifndef SYNTAX_HIGHLIGHT_H
+#define SYNTAX_HIGHLIGHT_H
+
+#endif

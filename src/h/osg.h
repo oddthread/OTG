@@ -13,7 +13,7 @@ typedef struct image_renderer image_renderer;
 
 void dtor_image_renderer(image_renderer *img);
 void image_renderer_set_texture(image_renderer *img,texture *t);
-image_renderer *ctor_image_renderer(window *w,texture *t);
+image_renderer *ctor_image_renderer(window *w,texture *t,rect *clip_region);
 void image_renderer_render(entity *e,renderer *i_r);
 void dtor_text_stretch_renderer(text_stretch_renderer *t);
 text_stretch_renderer *ctor_text_stretch_renderer();

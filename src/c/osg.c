@@ -4,6 +4,7 @@
 #include "opl/src/h/system.h"
 
 #include "oul/src/h/oul.h"
+#include "osg/src/h/syntax_highlight.h"
 
 /*@todo
 add getters/setters for all entity members
@@ -450,7 +451,17 @@ void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines
             {
                 dtor_texture(t->font_textures[i]);
             }
-            t->font_textures[i]=ctor_texture_font(t->w,t->f,text[i],text_color);
+
+            /*@bug
+            I had to add this check for empty string otherwise it was failing to create texture,
+            could be what is causing cursor to be moving to beginning?
+            */
+            if(text[i][0]==0){
+                t->font_textures[i]=NULL;
+            }
+            else{
+                t->font_textures[i]=ctor_texture_font(t->w,t->f,text[i],text_color);
+            }
         
             if(*t->line_numbers)
             {
@@ -468,7 +479,9 @@ void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines
     else
     {
         if(t->font_textures[*line_to_rerender])dtor_texture(t->font_textures[*line_to_rerender]);
-        t->font_textures[*line_to_rerender]=ctor_texture_font(t->w,t->f,text[*line_to_rerender],text_color);
+        if(text[*line_to_rerender][0]){
+            t->font_textures[*line_to_rerender]=ctor_texture_font(t->w,t->f,text[*line_to_rerender],text_color);
+        }
 
         if(*t->line_numbers)
         {
@@ -531,6 +544,7 @@ typedef struct image_renderer
     renderer r;
     texture *image_texture;
     window *w;
+    rect *clip_region;
 } image_renderer;
 void image_renderer_render(entity *e, renderer *i_r)
 {
@@ -542,14 +556,15 @@ void image_renderer_render(entity *e, renderer *i_r)
     r.h=e->render_size.y;
 
     texture_set_alpha(i->image_texture,e->render_alpha*255);
-    draw_texture(i->w, i->image_texture, &r, e->render_angle, NULL, NULL, NULL);
+    draw_texture(i->w, i->image_texture, &r, e->render_angle, NULL, NULL, i->clip_region);
 }
-image_renderer *ctor_image_renderer(window *w,texture *t)
+image_renderer *ctor_image_renderer(window *w,texture *t, rect *clip_region)
 {
     image_renderer *img=(image_renderer*)mem_alloc(sizeof(image_renderer));
     img->w=w;
     img->image_texture=t;
     img->r.render=image_renderer_render;
+    img->clip_region=clip_region;
     return img;
 }
 void image_renderer_set_texture(image_renderer *img, texture *t)
