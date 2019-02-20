@@ -163,9 +163,9 @@ void init_line_textures(line_textures *lt, window *w, char *line, ovp *config, t
             }
             k++;
         }
-
+        
         /*is str*/
-        if(tokens[j][0] == "\"" || tokens[j][0] == "'")
+        if(tokens[j][0] == '\"' || tokens[j][0] == '\'')
         {
             if(tokens[j][token_len-1]==tokens[j][0]){
                 is_string=true;
