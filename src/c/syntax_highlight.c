@@ -140,7 +140,7 @@ void init_line_textures(line_textures *lt, window *w, char *line, ovp *config, t
         }
         n--;/*stupid inclusive string function why did i do this*/
         char *newtoken=alloc_str_slice(line,begin,n);
-        printf("newtoken:%s:\n",newtoken);
+       
         if(newtoken && strlen(newtoken)){
             tokens_sz++;
             /*add token*/
