@@ -115,19 +115,32 @@ void init_line_textures(line_textures *lt, window *w, char *line, ovp *config, t
 
         /**/
         int begin=n;
-        if(str_contains(operators,line[n])){
+        if(line[n]=='"' || line[n]=='\''){
+            /*looking for strings gets first priority*/
+            n++;
+            while(n<line_len){
+                if(line[n]==line[begin] && line[n-1]!='\\'){
+                    n++;
+                    break;
+                }
+                n++;
+            }
+        }
+        else if(str_contains(operators,line[n])){
+            /*then separate things by operators (incl space)*/
             while(str_contains(operators,line[n]) && line[n]){
                 n++;
             }
         }
         else{
+            /*otherwise its something else*/
             while(!str_contains(operators,line[n]) && line[n]){
                 n++;
             }
         }
         n--;/*stupid inclusive string function why did i do this*/
         char *newtoken=alloc_str_slice(line,begin,n);
-        
+        printf("newtoken:%s:\n",newtoken);
         if(newtoken && strlen(newtoken)){
             tokens_sz++;
             /*add token*/
@@ -176,14 +189,14 @@ void init_line_textures(line_textures *lt, window *w, char *line, ovp *config, t
         lt->textures=realloc(lt->textures,sizeof(texture*)*lt->textures_sz);
         lt->textures_rects=realloc(lt->textures_rects,sizeof(rect)*lt->textures_sz);
 
-        if(is_operator){
+        if(is_string){
+            lt->textures[lt->textures_sz-1]=ctor_texture_font(w,f,tokens[j],stringsc);
+        }
+        else if(is_operator){
             lt->textures[lt->textures_sz-1]=ctor_texture_font(w,f,tokens[j],operatorsc);
         }
         else if(is_number){
             lt->textures[lt->textures_sz-1]=ctor_texture_font(w,f,tokens[j],numbersc);
-        }
-        else if(is_string){
-            lt->textures[lt->textures_sz-1]=ctor_texture_font(w,f,tokens[j],stringsc);
         }
         else{/*custom*/
             lt->textures[lt->textures_sz-1]=ctor_texture_font(w,f,tokens[j],get_custom_color(ext,tokens[j],config,defc));    
