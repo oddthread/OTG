@@ -316,9 +316,10 @@ entity *hit_test_recursive(vec2 mouse_position, entity *e, entity *highest)
 typedef struct text_block_renderer
 {
     renderer r;
+    ovp *config;
     ttf_font *f;
     /*@todo handle deleting lines? rerender all option on set_text?*/
-    texture **font_textures;/*texture for each line*/
+    line_textures *lines_textures;/*texture for each line*/
     texture **line_number_textures;/*texture for each line*/
     char **text;
     char *alignment;
@@ -365,70 +366,78 @@ void text_block_renderer_render(entity *e, renderer *tbr_r)
             
             if(tbr->line_number_textures && tbr->line_number_textures[i])draw_texture(tbr->w, tbr->line_number_textures[i], &r, e->render_angle, NULL, NULL, NULL);
         }
-        if(tbr->font_textures[i])
+        if(tbr->lines_textures[i].textures)
         {
-            size_ttf_font(tbr->f,tbr->text[i],&size_width,&size_height);
-            
-            clip_region.x=text_offset_x;
-            clip_region.y=0;
-            clip_region.w=e->render_size.x;
-            clip_region.h=e->render_size.y;
+            int line_textures_w_acc=0;
+            for(int j=0; j<tbr->lines_textures[i].textures_sz; j++){
 
-            r.w=size_width;
-            r.h=size_height;   
-            r.x=e->render_position.x;
-            r.y=e->render_position.y+size_height*i;
-            
-            draw_texture(tbr->w, tbr->font_textures[i], &r, e->render_angle, NULL, NULL, tbr->do_clip ? &clip_region : 0);
+                clip_region.x=text_offset_x;
+                clip_region.y=0;
+                clip_region.w=e->render_size.x;
+                clip_region.h=e->render_size.y;
+
+                r.w=tbr->lines_textures[i].textures_rects[j].w;
+                r.h=tbr->lines_textures[i].textures_rects[j].h;
+                r.x=e->render_position.x+line_textures_w_acc;
+                r.y=e->render_position.y+tbr->lines_textures[i].textures_rects[j].h*i;
+
+                draw_texture(tbr->w, tbr->lines_textures[i].textures[j], &r, e->render_angle, NULL, NULL, tbr->do_clip ? &clip_region : 0);
+                line_textures_w_acc+=r.w;
+            }
         }
     }
 }
-text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do_clip, u32 *line_numbers, char *alignment)
+text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do_clip, u32 *line_numbers, char *alignment, ovp *config)
 {
     text_block_renderer *tbr=(text_block_renderer*)mem_alloc(sizeof(text_block_renderer));
+    tbr->config=config;
     tbr->r.render=text_block_renderer_render;
     tbr->line_numbers=line_numbers;
     tbr->do_clip=do_clip;
     tbr->f=font;
     tbr->w=w;
-    tbr->font_textures=NULL;
+    tbr->lines_textures=NULL;
     tbr->line_number_textures=NULL;
     tbr->text=NULL;
     tbr->lines=0;
     tbr->alignment=alignment;
     return tbr;
 }
-void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines, color text_color, u32 *line_to_rerender)
+
+void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines, color text_color, u32 *line_to_rerender, char *ext)
 {
     u32 i;
 
-    /*if the array changes length we rerender (recreate) everything, otherwise its on you to tell when to recreate everything*/
-    /*@perf instead of rerendering everything if lines != t->lines just rerender latest one? and count on them to rerender everything if they inserted or something?*/
-    if(!line_to_rerender || lines != t->lines)
+    /*if the array changes length we rerender (recreate) everything, otherwise its on you to tell when to recreate everything
+
+    @perf instead of rerendering everything if lines != t->lines just rerender latest one? and count on them to rerender everything if they inserted or something?
+        can pass in the range of lines to rerender
+    */
+    if(!line_to_rerender || lines != t->lines)/*rerender everything*/
     {
-	/*
-	make sure array is initialized and array elements are zero initialized
-	*/
-        if(!t->font_textures)
+        /*
+        make sure array is initialized and array elements are zero initialized
+        */
+        if(!t->lines_textures)
         {
-            t->font_textures=(texture**)mem_alloc(lines * sizeof(texture*));
-            zero_out(t->font_textures,lines * sizeof(texture*));
+            t->lines_textures=(line_textures*)mem_alloc(lines * sizeof(line_textures));
+            zero_out(t->lines_textures,lines * sizeof(line_textures));
             if(*t->line_numbers)
             {
                 t->line_number_textures=(texture**)mem_alloc(lines * sizeof(texture*));
-	        zero_out(t->line_number_textures,lines * sizeof(texture*));
+                zero_out(t->line_number_textures,lines * sizeof(texture*));
             }
         }
         else
         {
             for(i=0; i<t->lines; i++)
             {
-                dtor_texture(t->font_textures[i]);
+                release_line_textures(&t->lines_textures[i]);
             }
-            mem_free(t->font_textures);
+            mem_free(t->lines_textures);
 
-            t->font_textures=(texture**)mem_alloc(lines * sizeof(texture*));
-            zero_out(t->font_textures,lines * sizeof(texture*));
+            t->lines_textures=(line_textures*)mem_alloc(lines * sizeof(line_textures));
+            zero_out(t->lines_textures,lines * sizeof(line_textures));
 
             if(*t->line_numbers)
             {
@@ -447,20 +456,12 @@ void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines
 
         for(i=0; i<lines; i++)
         {
-            if(t->font_textures[i])
-            {
-                dtor_texture(t->font_textures[i]);
-            }
-
             /*@bug
             I had to add this check for empty string otherwise it was failing to create texture,
             could be what is causing cursor to be moving to beginning?
             */
-            if(text[i][0]==0){
-                t->font_textures[i]=NULL;
-            }
-            else{
-                t->font_textures[i]=ctor_texture_font(t->w,t->f,text[i],text_color);
+            if(text[i][0]!=0){
+                init_line_textures(&t->lines_textures[i],t->w,text[i],t->config,t->f,ext);
             }
         
             if(*t->line_numbers)
@@ -477,10 +478,10 @@ void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines
         }
     }
     else
-    {
-        if(t->font_textures[*line_to_rerender])dtor_texture(t->font_textures[*line_to_rerender]);
+    {/*just rerender one texture*/
+        release_line_textures(&t->lines_textures[*line_to_rerender]);
         if(text[*line_to_rerender][0]){
-            t->font_textures[*line_to_rerender]=ctor_texture_font(t->w,t->f,text[*line_to_rerender],text_color);
+            init_line_textures(&t->lines_textures[*line_to_rerender],t->w,text[*line_to_rerender],t->config,t->f,ext);
         }
 
         if(*t->line_numbers)
@@ -501,14 +502,14 @@ void dtor_text_block_renderer(text_block_renderer *t)
 {
     u32 i;
     
-    if(t->font_textures)
+    if(t->lines_textures)
     {
         for(i=0; i<t->lines; i+=1)
         {
-            if(t->font_textures[i])dtor_texture(t->font_textures[i]);
+            release_line_textures(&t->lines_textures[i]);
         }
         
-        mem_free(t->font_textures);
+        mem_free(t->lines_textures);
     }
     if(t->line_number_textures)
     {

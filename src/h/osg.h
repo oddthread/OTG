@@ -5,6 +5,8 @@
 #include "oul/src/h/oul.h"
 #include "opl/src/h/graphics.h"
 
+#include "ovp/src/h/ovp.h"
+
 typedef struct entity entity;
 typedef struct renderer renderer;
 typedef struct text_block_renderer text_block_renderer;
@@ -19,8 +21,8 @@ void dtor_text_stretch_renderer(text_stretch_renderer *t);
 text_stretch_renderer *ctor_text_stretch_renderer();
 void text_stretch_renderer_render(entity *e,text_stretch_renderer *t);
 void dtor_text_block_renderer(text_block_renderer *t);
-void text_block_renderer_set_text(text_block_renderer *t,char **text,u32 lines,color text_color,u32 *line_to_rerender);
-text_block_renderer *ctor_text_block_renderer(window *w,ttf_font *font,bool do_clip,u32 *line_numbers,char *alignment);
+void text_block_renderer_set_text(text_block_renderer *t,char **text,u32 lines,color text_color,u32 *line_to_rerender,char *ext);
+text_block_renderer *ctor_text_block_renderer(window *w,ttf_font *font,bool do_clip,u32 *line_numbers,char *alignment, ovp *config);
 void text_block_renderer_render(entity *e,renderer *tbr_r);
 entity *hit_test_recursive(vec2 mouse_position,entity *e,entity *highest);
 bool entity_is_or_is_recursive_child(entity *e,entity *test);
