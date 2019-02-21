@@ -316,6 +316,8 @@ entity *hit_test_recursive(vec2 mouse_position, entity *e, entity *highest)
 typedef struct text_block_renderer
 {
     renderer r;
+    color text_color;
+    int curline;
     ovp *config;
     ttf_font *f;
     /*@todo handle deleting lines? rerender all option on set_text?*/
@@ -328,7 +330,9 @@ typedef struct text_block_renderer
     s32 lines;
     window *w;
 } text_block_renderer;
-
+void text_block_renderer_set_curline(text_block_renderer *t, int curline){
+    t->curline=curline;
+}
 void text_block_renderer_render(entity *e, renderer *tbr_r)
 {
     text_block_renderer *tbr=(text_block_renderer*)tbr_r;
@@ -351,7 +355,27 @@ void text_block_renderer_render(entity *e, renderer *tbr_r)
     int size_height;
 
     char buffer[MAXIMUM_LINE_NUMBER_LENGTH];
-    for(i=0; i<tbr->lines; i++)
+    /*
+    check which lines even need to be iterated through 
+    (by looking at current line and finding from height and size of window)
+    */
+    int minline=0;
+    int maxline=0;
+    int testx,testy;
+
+    size_ttf_font(tbr->f,"_",&testx,&testy);
+
+    int window_size_x,window_size_y;
+    window_get_size(tbr->w,&window_size_x,&window_size_y);
+
+    int window_line_sz=window_size_y/testy+1;
+    minline=tbr->curline-window_line_sz;
+    maxline=tbr->curline+window_line_sz;
+    
+    if(maxline>tbr->lines)maxline=tbr->lines;
+    if(minline<0)minline=0;
+    
+    for(i=minline; i<maxline; i++)
     {
         if(*tbr->line_numbers)
         {
@@ -380,17 +404,19 @@ void text_block_renderer_render(entity *e, renderer *tbr_r)
                 r.h=tbr->lines_textures[i].textures_rects[j].h;
                 r.x=e->render_position.x+line_textures_w_acc;
                 r.y=e->render_position.y+tbr->lines_textures[i].textures_rects[j].h*i;
-
-                draw_texture(tbr->w, tbr->lines_textures[i].textures[j], &r, e->render_angle, NULL, NULL, tbr->do_clip ? &clip_region : 0);
+                if(r.w && r.h && tbr->lines_textures[i].textures[j]){
+                    draw_texture(tbr->w, tbr->lines_textures[i].textures[j], &r, e->render_angle, NULL, NULL, tbr->do_clip ? &clip_region : 0);
+                }
                 line_textures_w_acc+=r.w;
             }
         }
     }
 }
-text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do_clip, u32 *line_numbers, char *alignment, ovp *config)
+text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do_clip, u32 *line_numbers, char *alignment, ovp *config, color ln_color)
 {
     text_block_renderer *tbr=(text_block_renderer*)mem_alloc(sizeof(text_block_renderer));
     tbr->config=config;
+    tbr->text_color=ln_color;
     tbr->r.render=text_block_renderer_render;
     tbr->line_numbers=line_numbers;
     tbr->do_clip=do_clip;
@@ -403,99 +429,74 @@ text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do
     tbr->alignment=alignment;
     return tbr;
 }
+void text_block_renderer_remove_lines(text_block_renderer *t, u32 begin, u32 lines){
+    tbr_ln_line_change(t,lines*-1);
+    t->lines-=lines;
 
-void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines, color text_color, u32 *line_to_rerender, char *ext)
-{
-    u32 i;
+    int k;
+    for(k=begin; k<begin+lines; k++){
+        release_line_textures(&t->lines_textures[k]);
+    }
 
-    /*if the array changes length we rerender (recreate) everything, otherwise its on you to tell when to recreate everything
-
-    @perf instead of rerendering everything if lines != t->lines just rerender latest one? and count on them to rerender everything if they inserted or something?
-        can pass in the range of lines to rerender
-    */
-    if(!line_to_rerender || lines != t->lines)/*rerender everything*/
-    {
-        /*
-        make sure array is initialized and array elements are zero initialized
-        */
-        if(!t->lines_textures)
-        {
-            t->lines_textures=(line_textures*)mem_alloc(lines * sizeof(line_textures));
-            zero_out(t->lines_textures,lines * sizeof(line_textures));
-            if(*t->line_numbers)
-            {
-                t->line_number_textures=(texture**)mem_alloc(lines * sizeof(texture*));
-                zero_out(t->line_number_textures,lines * sizeof(texture*));
-            }
+    for(k=0; k<lines; k++){
+        for(int i=begin; i<t->lines-1; i++){
+            t->lines_textures[i]=t->lines_textures[i+1];
         }
-        else
-        {
-            for(i=0; i<t->lines; i++)
-            {
-                release_line_textures(&t->lines_textures[i]);
-            }
-            mem_free(t->lines_textures);
+    }
 
-            t->lines_textures=(line_textures*)mem_alloc(lines * sizeof(line_textures));
-            zero_out(t->lines_textures,lines * sizeof(line_textures));
+    t->lines_textures=(line_textures*)realloc(t->lines_textures,t->lines * sizeof(line_textures));
+}
 
-            if(*t->line_numbers)
-            {
-                if(t->line_number_textures)
-                {
-                    for(i=0; i<t->lines; i++)
-                    {
-                        dtor_texture(t->line_number_textures[i]);
-                    }
-                    mem_free(t->line_number_textures);   
-                }
-                t->line_number_textures=(texture**)mem_alloc(lines * sizeof(texture*));
-                zero_out(t->line_number_textures,lines * sizeof(texture*));
-            }
-        }
-
-        for(i=0; i<lines; i++)
-        {
-            /*@bug
-            I had to add this check for empty string otherwise it was failing to create texture,
-            could be what is causing cursor to be moving to beginning?
-            */
-            if(text[i][0]!=0){
-                init_line_textures(&t->lines_textures[i],t->w,text[i],t->config,t->f,ext);
-            }
-        
-            if(*t->line_numbers)
-            {
-                if(t->line_number_textures[i])
-                {
-                    dtor_texture(t->line_number_textures[i]);
-                }
-                char buffer[MAXIMUM_LINE_NUMBER_LENGTH];
-                itoa(i+1,buffer,10);
-                t->line_number_textures[i]=ctor_texture_font(t->w,t->f,buffer,text_color);
-                texture_set_alpha(t->line_number_textures[i],100);
+void tbr_ln_line_change(text_block_renderer *t, u32 lines){
+    /*assume t->lines hasnt yet changed*/
+    if(t->line_number_textures){
+        if(lines<0){
+            for(int i=t->lines-1-lines; i<t->lines-1; i++){
+                dtor_texture(t->line_number_textures[i]);
             }
         }
     }
-    else
-    {/*just rerender one texture*/
-        release_line_textures(&t->lines_textures[*line_to_rerender]);
-        if(text[*line_to_rerender][0]){
-            init_line_textures(&t->lines_textures[*line_to_rerender],t->w,text[*line_to_rerender],t->config,t->f,ext);
-        }
-
-        if(*t->line_numbers)
-        {
-            dtor_texture(t->line_number_textures[*line_to_rerender]);
+    int newlines=t->lines+lines;
+    t->line_number_textures=realloc(t->line_number_textures,sizeof(texture*)*newlines);
+    if(lines>0){
+        int start=t->lines-1 < 0 ? 0 : t->lines-1;
+        for(int i=start; i<newlines; i++){
             char buffer[MAXIMUM_LINE_NUMBER_LENGTH];
-            itoa((*line_to_rerender)+1,buffer,10);
-            t->line_number_textures[*line_to_rerender]=ctor_texture_font(t->w,t->f,buffer,text_color);
-            texture_set_alpha(t->line_number_textures[*line_to_rerender],100);
+            itoa(i+1,buffer,10);
+            t->line_number_textures[i]=ctor_texture_font(t->w,t->f,buffer,t->text_color);
+            texture_set_alpha(t->line_number_textures[i],100);
+        }
+    }
+}
+void text_block_renderer_add_lines(text_block_renderer *t, u32 begin, u32 lines){
+    tbr_ln_line_change(t,lines);
+    int oldlines=t->lines;
+    t->lines+=lines;
+    
+    t->lines_textures=(line_textures*)realloc(t->lines_textures,t->lines * sizeof(line_textures));
+    
+
+    for(int k=0; k<lines; k++){
+        for(int i=t->lines-1; i>begin && i > 0; i--){
+            t->lines_textures[i]=t->lines_textures[i-1];
+        }
+    }
+    
+    zero_out(t->lines_textures+begin,sizeof(line_textures)*lines);
+}
+void text_block_renderer_set_text(text_block_renderer *t, char **text, u32 lines, s32 start, s32 end, char *ext)
+{
+    u32 i;
+    if(start<0)start=0;
+    if(end>t->lines-1)end=t->lines-1;
+    for(int j=start; j<=end; j++){
+        release_line_textures(&t->lines_textures[j]);
+        if(text[j] && text[j][0]){
+            init_line_textures(&t->lines_textures[j],t->w,text[j],t->config,t->f,ext);
         }
     }
 
     t->text=text;
-    t->lines=lines;
 }
 /*doesnt mem_free the font, you have to manage that separately (keep a reference)*/
 void dtor_text_block_renderer(text_block_renderer *t)

@@ -189,17 +189,23 @@ void init_line_textures(line_textures *lt, window *w, char *line, ovp *config, t
         lt->textures=realloc(lt->textures,sizeof(texture*)*lt->textures_sz);
         lt->textures_rects=realloc(lt->textures_rects,sizeof(rect)*lt->textures_sz);
 
-        if(is_string){
-            lt->textures[lt->textures_sz-1]=ctor_texture_font(w,f,tokens[j],stringsc);
+
+        if(strlen(tokens[j])){
+            if(is_string){
+                lt->textures[lt->textures_sz-1]=ctor_texture_font(w,f,tokens[j],stringsc);
+            }
+            else if(is_operator){
+                lt->textures[lt->textures_sz-1]=ctor_texture_font(w,f,tokens[j],operatorsc);
+            }
+            else if(is_number){
+                lt->textures[lt->textures_sz-1]=ctor_texture_font(w,f,tokens[j],numbersc);
+            }
+            else{/*custom*/
+                lt->textures[lt->textures_sz-1]=ctor_texture_font(w,f,tokens[j],get_custom_color(ext,tokens[j],config,defc));    
+            }
         }
-        else if(is_operator){
-            lt->textures[lt->textures_sz-1]=ctor_texture_font(w,f,tokens[j],operatorsc);
-        }
-        else if(is_number){
-            lt->textures[lt->textures_sz-1]=ctor_texture_font(w,f,tokens[j],numbersc);
-        }
-        else{/*custom*/
-            lt->textures[lt->textures_sz-1]=ctor_texture_font(w,f,tokens[j],get_custom_color(ext,tokens[j],config,defc));    
+        else{
+            lt->textures[lt->textures_sz-1]=NULL;
         }
 
         int size_x,size_y;
@@ -224,10 +230,15 @@ void init_line_textures(line_textures *lt, window *w, char *line, ovp *config, t
 void release_line_textures(line_textures *lt){
     if(lt->textures_sz){/*has been initialized*/
         for(int i=0; i<lt->textures_sz; i++){
-            dtor_texture(lt->textures[i]);
+            if(lt->textures[i])dtor_texture(lt->textures[i]);
+            
+            lt->textures[i]=NULL;
         }
-        free(lt->textures);
-        free(lt->textures_rects);
+        if(lt->textures)free(lt->textures);
+        lt->textures=NULL;
+        if(lt->textures_rects)free(lt->textures_rects);
+        lt->textures_rects=NULL;
+        lt->textures_sz=0;
     }
 }
 
