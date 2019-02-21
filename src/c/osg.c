@@ -429,24 +429,6 @@ text_block_renderer *ctor_text_block_renderer(window *w, ttf_font *font, bool do
     tbr->alignment=alignment;
     return tbr;
 }
-void text_block_renderer_remove_lines(text_block_renderer *t, u32 begin, u32 lines){
-    tbr_ln_line_change(t,lines*-1);
-    t->lines-=lines;
-
-    int k;
-    for(k=begin; k<begin+lines; k++){
-        release_line_textures(&t->lines_textures[k]);
-    }
-
-    for(k=0; k<lines; k++){
-        for(int i=begin; i<t->lines-1; i++){
-            t->lines_textures[i]=t->lines_textures[i+1];
-        }
-    }
-
-    t->lines_textures=(line_textures*)realloc(t->lines_textures,t->lines * sizeof(line_textures));
-}
-
 void tbr_ln_line_change(text_block_renderer *t, u32 lines){
     /*assume t->lines hasnt yet changed*/
     if(t->line_number_textures){
@@ -468,6 +450,25 @@ void tbr_ln_line_change(text_block_renderer *t, u32 lines){
         }
     }
 }
+
+void text_block_renderer_remove_lines(text_block_renderer *t, u32 begin, u32 lines){
+    tbr_ln_line_change(t,lines*-1);
+    t->lines-=lines;
+
+    int k;
+    for(k=begin; k<begin+lines; k++){
+        release_line_textures(&t->lines_textures[k]);
+    }
+
+    for(k=0; k<lines; k++){
+        for(int i=begin; i<t->lines-1; i++){
+            t->lines_textures[i]=t->lines_textures[i+1];
+        }
+    }
+
+    t->lines_textures=(line_textures*)realloc(t->lines_textures,t->lines * sizeof(line_textures));
+}
+
 void text_block_renderer_add_lines(text_block_renderer *t, u32 begin, u32 lines){
     tbr_ln_line_change(t,lines);
     int oldlines=t->lines;

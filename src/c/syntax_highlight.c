@@ -46,7 +46,7 @@ void init_line_textures(line_textures *lt, window *w, char *line, ovp *config, t
     lt->textures_sz=0;
     lt->textures=NULL;
     lt->textures_rects=NULL;
-
+    
     if(!ext || !ext[0]){
         /*no extension, no highlight*/
         lt->textures_sz=1;
