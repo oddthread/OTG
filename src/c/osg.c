@@ -27,10 +27,10 @@ typedef struct renderer
 u32 uid_counter=0;
 typedef struct entity
 {
-	vec2 render_size;
-	vec2 render_position;
+    vec2 render_size;
+    vec2 render_position;
 
-	entity *parent;
+    entity *parent;
     u32 uid;
     
     bool solid;
@@ -48,15 +48,15 @@ typedef struct entity
 
     bool dirty;
     bool visible;
-	
-	vec2 size;
-	vec2 position;
-	
-	vec2 relsize;
-	vec2 relpos;
-	vec2 relposme;
+    
+    vec2 size;
+    vec2 position;
+    
+    vec2 relsize;
+    vec2 relpos;
+    vec2 relposme;
 
-	r32 angle;
+    r32 angle;
     r32 render_angle;
 } entity;
 /*
@@ -453,7 +453,6 @@ void tbr_ln_line_change(text_block_renderer *t, u32 lines){
 
 void text_block_renderer_remove_lines(text_block_renderer *t, u32 begin, u32 lines){
     tbr_ln_line_change(t,lines*-1);
-    t->lines-=lines;
 
     int k;
     for(k=begin; k<begin+lines; k++){
@@ -465,6 +464,8 @@ void text_block_renderer_remove_lines(text_block_renderer *t, u32 begin, u32 lin
             t->lines_textures[i]=t->lines_textures[i+1];
         }
     }
+
+    t->lines-=lines;
 
     t->lines_textures=(line_textures*)realloc(t->lines_textures,t->lines * sizeof(line_textures));
 }
